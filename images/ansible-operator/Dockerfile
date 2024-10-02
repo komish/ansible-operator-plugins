@@ -2,11 +2,13 @@
 # It is built with dependencies that take a while to download, thus speeding
 # up ansible deploy jobs.
 
-FROM registry.access.redhat.com/ubi8/ubi:8.9-1107 AS basebuilder
+# FROM registry.access.redhat.com/ubi9/ubi:9.4-1214 AS basebuilder
+FROM registry.access.redhat.com/ubi9-minimal:9.4-1227 AS basebuilder
 
 # Install Rust so that we can ensure backwards compatibility with installing/building the cryptography wheel across all platforms
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup install 1.76.0 && rustup default 1.76.0
 RUN rustc --version
 
 # Copy python dependencies (including ansible) to be installed using Pipenv
@@ -19,9 +21,9 @@ ENV PIP_NO_CACHE_DIR=1 \
     PIPENV_CLEAR=1
 # Ensure fresh metadata rather than cached metadata, install system and pip python deps,
 # and remove those not needed at runtime.
-RUN set -e && yum clean all && rm -rf /var/cache/yum/* \
-  && yum update -y \
-  && yum install -y libffi-devel openssl-devel python39-devel gcc python39-pip python39-setuptools \
+RUN set -e && microdnf clean all && rm -rf /var/cache/microdnf/* \
+  && microdnf update -y \
+  && microdnf install -y libffi-devel openssl-devel python3-devel gcc python3-pip python3-setuptools \
   && pip3 install --upgrade pip~=23.3.2 \
   && pip3 install pipenv==2023.11.15 \
   && pipenv install --deploy \
@@ -34,11 +36,11 @@ RUN set -e && yum clean all && rm -rf /var/cache/yum/* \
   # but the upgraded version doesn't support the use case (protocol we are using).\
   # Ref: https://github.com/operator-framework/ansible-operator-plugins/pull/67#issuecomment-2189164688
   && pipenv check --ignore 70612 --ignore 71064 \
-  && yum remove -y gcc libffi-devel openssl-devel python39-devel \
-  && yum clean all \
-  && rm -rf /var/cache/yum
+  && microdnf remove -y gcc libffi-devel openssl-devel python3-devel \
+  && microdnf clean all \
+  && rm -rf /var/cache/microdnf
 
-FROM registry.access.redhat.com/ubi8/ubi:8.9-1107 as base
+FROM registry.access.redhat.com/ubi9-minimal:9.4-1227 as base
 ARG TARGETARCH
 
 # Label this image with the repo and commit that built it, for freshmaking purposes.
@@ -51,13 +53,13 @@ RUN mkdir -p /etc/ansible \
   && echo 'roles_path = /opt/ansible/roles' >> /etc/ansible/ansible.cfg \
   && echo 'library = /usr/share/ansible/openshift' >> /etc/ansible/ansible.cfg
 
-RUN set -e && yum clean all && rm -rf /var/cache/yum/* \
-  && yum update -y \
-  && yum install -y python39-pip python39-setuptools \
+RUN set -e && microdnf clean all && rm -rf /var/cache/microdnf/* \
+  && microdnf update -y \
+  && microdnf install -y python3-pip python3-setuptools \
   && pip3 install --upgrade pip~=23.3.2 \
   && pip3 install pipenv==2023.11.15 \
-  && yum clean all \
-  && rm -rf /var/cache/yum
+  && microdnf clean all \
+  && rm -rf /var/cache/microdnf
 
 COPY --from=basebuilder /usr/local/lib64/python3.9/site-packages /usr/local/lib64/python3.9/site-packages
 COPY --from=basebuilder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
