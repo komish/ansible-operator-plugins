@@ -1,0 +1,9 @@
+image_templates: []
+dockerfile: images/ansible-operator/Dockerfile
+goos: unset
+goarch: unset
+# use: buildx
+build_flag_templates: []
+extra_files:
+  - "images/ansible-operator/Pipfile"
+  - "images/ansible-operator/Pipfile.lock"

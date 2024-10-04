@@ -184,3 +184,12 @@ help: ## Show this help screen.
 	@echo 'Available targets are:'
 	@echo ''
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+.PHONY: jg-release
+jg-release:
+	goreleaser release --snapshot --clean --skip-announce --skip-publish --auto-snapshot
+
+.PHONY: jg-assembled
+jg-assembled:
+	cd goreleaser-templates && TEMPLATE_OS=linux TEMPLATE_ARCH=ppc64le bash assemble.sh | tee ../goreleaser.assembled.yml 
+	goreleaser release --snapshot --clean --skip-announce --skip-publish --auto-snapshot --config goreleaser.assembled.yml

@@ -1,0 +1,2 @@
+imageTemplateString: "{{ .Env.IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-"
+buildflagTemplateString: "--platform="
