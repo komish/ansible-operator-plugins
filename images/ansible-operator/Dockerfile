@@ -68,7 +68,7 @@ RUN curl -L -o /tini https://github.com/krallin/tini/releases/download/${TINI_VE
   && chmod +x /tini && /tini --version
 
 # Final image.
-FROM base
+FROM base AS final
 
 ENV HOME=/opt/ansible \
     USER_NAME=ansible \
