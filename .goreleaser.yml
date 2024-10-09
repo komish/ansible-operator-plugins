@@ -20,48 +20,52 @@ builds:
 dockers:
 - image_templates:
   - "{{ .Env.IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
-  dockerfile: images/ansible-operator/Dockerfile
+  dockerfile: images/release.Dockerfile
   goos: linux
   goarch: amd64
   use: buildx
   build_flag_templates:
     - "--platform=linux/amd64"
   extra_files:
-    - "images/ansible-operator/Pipfile"
-    - "images/ansible-operator/Pipfile.lock"
+    # - "images/ansible-operator/Pipfile"
+    # - "images/ansible-operator/Pipfile.lock"
+    - "images/cache/amd64"
 - image_templates:
     - "{{ .Env.IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
-  dockerfile: images/ansible-operator/Dockerfile
+  dockerfile: images/release.Dockerfile
   goos: linux
   goarch: arm64
   use: buildx
   build_flag_templates:
     - "--platform=linux/arm64"
   extra_files:
-    - "images/ansible-operator/Pipfile"
-    - "images/ansible-operator/Pipfile.lock"
+    # - "images/ansible-operator/Pipfile"
+    # - "images/ansible-operator/Pipfile.lock" 
+    - "images/cache/arm64"
 - image_templates:
     - "{{ .Env.IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
-  dockerfile: images/ansible-operator/Dockerfile
+  dockerfile: images/release.Dockerfile
   goos: linux
   goarch: ppc64le
   use: buildx
   build_flag_templates:
     - "--platform=linux/ppc64le"
   extra_files:
-    - "images/ansible-operator/Pipfile"
-    - "images/ansible-operator/Pipfile.lock"
+    # - "images/ansible-operator/Pipfile"
+    # - "images/ansible-operator/Pipfile.lock"
+  - "images/cache/ppc64le"
 - image_templates:
     - "{{ .Env.IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
-  dockerfile: images/ansible-operator/Dockerfile
+  dockerfile: images/release.Dockerfile
   goos: linux
   goarch: s390x
   use: buildx
   build_flag_templates:
     - "--platform=linux/s390x"
   extra_files:
-    - "images/ansible-operator/Pipfile"
-    - "images/ansible-operator/Pipfile.lock"
+    # - "images/ansible-operator/Pipfile"
+    # - "images/ansible-operator/Pipfile.lock"
+    - "images/cache/s390x"
 docker_manifests:
 - name_template: "{{ .Env.IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}"
   image_templates:

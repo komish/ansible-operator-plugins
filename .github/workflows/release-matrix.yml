@@ -1,0 +1,143 @@
+name: release-matrix
+
+on:
+  workflow_dispatch:
+  merge_group:
+  push:
+    branches:
+      - 'main'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  cache-installation:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+          arch:
+            - amd64
+            - arm64
+            - ppc64le
+            - s390x
+          platform: [linux]
+    steps:
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Find or set cache
+      id: cache-installation
+      uses: actions/cache@v4
+      with:
+        path: "images/cache/${{ matrix.arch }}"
+        key: ${{ matrix.platform }}-${{ matrix.arch }}-${{ hashfiles('images/ansible-operator/*') }}
+
+    - name: Set up QEMU 
+      if: ${{ steps.cache-installation.outputs.cache-hit != 'true' }}
+      uses: docker/setup-qemu-action@v2
+
+    - name: Set up Docker Buildx
+      if: ${{ steps.cache-installation.outputs.cache-hit != 'true' }}
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build
+      if: ${{ steps.cache-installation.outputs.cache-hit != 'true' }}
+      uses: docker/build-push-action@v6
+      with:
+        platforms: "${{ matrix.platform }}/${{ matrix.arch }}"
+        push: false
+        tags: "cache:${{ matrix.platform }}-${{ matrix.arch }}"
+        file: images/ansible-operator/matrix.Dockerfile
+        load: true
+
+    - name: Extract cached content
+      if: ${{ steps.cache-installation.outputs.cache-hit != 'true' }}
+      run: |
+        mkdir -p images/cache/
+        docker cp $(docker create cache:${{ matrix.platform }}-${{ matrix.arch }} no-cmd):/cache images/cache/${{ matrix.arch }}
+
+  goreleaser:
+    needs: [cache-installation]
+    name: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Install Go
+      uses: actions/setup-go@v4
+      with:
+        go-version-file: "go.mod"
+
+
+    # - name: Docker Login
+    #   if: ${{ github.event_name != 'pull_request' }}
+    #   uses: docker/login-action@v2
+    #   with:
+    #     registry: quay.io
+    #     username: ${{ secrets.QUAY_USERNAME }}
+    #     password: ${{ secrets.QUAY_PASSWORD }}
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+
+    - name: Set the release related variables
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          # Release tags.
+          echo IMAGE_TAG="${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo GORELEASER_ARGS="--clean --timeout=120m" >> $GITHUB_ENV
+          echo ENABLE_RELEASE_PIPELINE=true >> $GITHUB_ENV
+        elif [[ $GITHUB_REF == refs/heads/* ]]; then
+          # Branch build.
+          echo IMAGE_TAG="$(echo "${GITHUB_REF#refs/heads/}" | sed -r 's|/+|-|g')" >> $GITHUB_ENV
+          echo GORELEASER_ARGS="--clean --skip-validate --timeout=120m" >> $GITHUB_ENV
+        elif [[ $GITHUB_REF == refs/pull/* ]]; then
+          # PR build.
+          echo IMAGE_TAG="pr-$(echo "${GITHUB_REF}" | sed -E 's|refs/pull/([^/]+)/?.*|\1|')" >> $GITHUB_ENV
+        else
+          echo IMAGE_TAG="$(git describe --tags --always)" >> $GITHUB_ENV
+        fi
+
+
+    - name: Pull cache (amd64)
+      uses: actions/cache@v4
+      with:
+        path: images/cache/amd64
+        fail-on-cache-miss: true
+        key: linux-amd64-${{ hashfiles('images/ansible-operator/*') }}
+
+    - name: Pull cache (arm64)
+      uses: actions/cache@v4
+      with:
+        path: images/cache/arm64
+        fail-on-cache-miss: true
+        key: linux-arm64-${{ hashfiles('images/ansible-operator/*') }}
+
+    - name: Pull cache (s390x)
+      uses: actions/cache@v4
+      with:
+        path: images/cache/s390x
+        fail-on-cache-miss: true
+        key: linux-s390x-${{ hashfiles('images/ansible-operator/*') }}
+
+    - name: Pull cache (ppc64le)
+      uses: actions/cache@v4
+      with:
+        path: images/cache/ppc64le
+        fail-on-cache-miss: true
+        key: linux-ppc64le-${{ hashfiles('images/ansible-operator/*') }}
+
+    - name: Observe cache
+      run: ls -lah images/cache/*
+
+    - name: Run goreleaser
+      run: make release
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
